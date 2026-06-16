@@ -2,9 +2,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-// Initialize Supabase Admin with Service Role for secure database operations
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceRole = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+// Fallback values prevent build-time crashes when environment variables are not yet loaded
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder-url.supabase.co';
+const supabaseServiceRole = process.env.SUPABASE_SERVICE_ROLE_KEY || 'placeholder-key';
 const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRole);
 
 function buildPrompt(titleLength: number, descLength: number, keywordCount: number) {
