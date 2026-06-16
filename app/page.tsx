@@ -104,7 +104,7 @@ const PLATFORM_ACCENTS: Record<string, string> = {
   teal: 'border-teal-500 text-teal-750 bg-teal-50',
 };
 
-// Expanded AI Models List (Free and Paid)
+// Expanded AI Models List (Free and Paid) with Grok & DeepSeek Added
 const AI_MODELS = [
   { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash (Free / Paid)', platform: 'google' },
   { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro (Precise / Paid)', platform: 'google' },
@@ -113,6 +113,8 @@ const AI_MODELS = [
   { id: 'gpt-4o-mini', name: 'GPT-4o mini (Fast & Budget)', platform: 'openai' },
   { id: 'claude-3-5-sonnet', name: 'Claude 3.5 Sonnet (Accurate)', platform: 'anthropic' },
   { id: 'claude-3-haiku', name: 'Claude 3 Haiku (Ultra-Fast)', platform: 'anthropic' },
+  { id: 'grok-2-vision', name: 'Grok 2 Vision (Multimodal / xAI)', platform: 'xai' },
+  { id: 'deepseek-v4', name: 'DeepSeek V4 (Cost-Efficient Text)', platform: 'deepseek' },
 ];
 
 // Target URLs for dynamic "Get API" redirection
@@ -120,6 +122,8 @@ const API_KEY_URLS: Record<string, string> = {
   google: 'https://aistudio.google.com/',
   openai: 'https://platform.openai.com/api-keys',
   anthropic: 'https://console.anthropic.com/',
+  xai: 'https://console.x.ai/',
+  deepseek: 'https://platform.deepseek.com/',
 };
 
 const KEYWORD_POOL: string[] = [
@@ -207,12 +211,47 @@ function toCSV(rows: any[]): string {
   return lines.join('\n');
 }
 
-function fileToBase64(file: File): Promise<string> {
+// Highly efficient client-side image compression & resizing using HTML5 Canvas to safely bypass Vercel 4.5MB payload limit
+function compressAndGetBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result).split(',')[1]);
-    reader.onerror = reject;
     reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxWidth = 1024; // Generates high-quality results while keeping file size around 150KB
+        const maxHeight = 1024;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('Canvas context failed'));
+          return;
+        }
+        ctx.drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85); // Compress to balanced JPEG
+        resolve(dataUrl.split(',')[1]); // Returns only base64 data payload
+      };
+      img.onerror = (err) => reject(err);
+    };
+    reader.onerror = (err) => reject(err);
   });
 }
 
@@ -507,7 +546,8 @@ export default function MetadataStudio() {
     }
 
     try {
-      const base64 = await fileToBase64(target.file);
+      // Use Client-Side Canvas Compression to safely keep payload under 200KB and prevent Vercel 413 error
+      const base64 = await compressAndGetBase64(target.file);
       const headers: Record<string, string> = { 'content-type': 'application/json' };
       
       // Inject user bearer token securely if they don't use their own API key
@@ -1145,7 +1185,7 @@ export default function MetadataStudio() {
           <div className="absolute inset-0 bg-stone-900/40" onClick={() => setHistoryOpen(false)} />
           <div className="relative w-80 bg-white border-l border-stone-200 h-full p-5 overflow-y-auto qscroll shadow-xl">
             <div className="flex items-center justify-between border-b border-stone-200 pb-3 mb-4">
-              <h3 className="text-sm font-bold text-stone-850 uppercase tracking-wide">Export history</h3>
+              <h3 className="text-sm font-bold text-stone-855 uppercase tracking-wide">Export history</h3>
               <button onClick={() => setHistoryOpen(false)} className="text-stone-400 hover:text-stone-600"><X className="h-4 w-4" /></button>
             </div>
             {history.length === 0 ? (
