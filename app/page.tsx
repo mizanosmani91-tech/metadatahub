@@ -90,18 +90,18 @@ const PLATFORMS: Platform[] = [
 ];
 
 const PLATFORM_ACCENTS: Record<string, string> = {
-  stone: 'border-stone-400 text-stone-800 bg-stone-100',
+  stone: 'border-stone-400 text-stone-850 bg-stone-100',
   orange: 'border-orange-400 text-orange-700 bg-orange-50',
-  red: 'border-red-400 text-red-750 bg-red-50',
+  red: 'border-red-400 text-red-700 bg-red-50',
   amber: 'border-amber-400 text-amber-700 bg-amber-50',
-  sky: 'border-sky-400 text-sky-750 bg-sky-50',
-  lime: 'border-lime-500 text-lime-750 bg-lime-50',
-  fuchsia: 'border-fuchsia-400 text-fuchsia-750 bg-fuchsia-50',
-  cyan: 'border-cyan-500 text-cyan-750 bg-cyan-50',
-  emerald: 'border-emerald-500 text-emerald-750 bg-emerald-50',
-  rose: 'border-rose-400 text-rose-750 bg-rose-50',
-  blue: 'border-blue-400 text-blue-750 bg-blue-50',
-  teal: 'border-teal-500 text-teal-750 bg-teal-50',
+  sky: 'border-sky-400 text-sky-700 bg-sky-50',
+  lime: 'border-lime-500 text-lime-700 bg-lime-50',
+  fuchsia: 'border-fuchsia-400 text-fuchsia-700 bg-fuchsia-50',
+  cyan: 'border-cyan-500 text-cyan-700 bg-cyan-50',
+  emerald: 'border-emerald-500 text-emerald-700 bg-emerald-50',
+  rose: 'border-rose-400 text-rose-700 bg-rose-50',
+  blue: 'border-blue-400 text-blue-700 bg-blue-50',
+  teal: 'border-teal-500 text-teal-700 bg-teal-50',
 };
 
 // Expanded AI Models List (Free and Paid)
@@ -233,8 +233,8 @@ function StatusPill({ status }: { status: string }) {
   const s = map[status] || map.queued;
   return (
     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border ${s.cls}`}>
-      {status === 'processing' && <Loader2 className="h-3 w-3 animate-spin text-amber-600" />}
-      {status === 'done' && <CheckCircle2 className="h-3 w-3 text-emerald-600" />}
+      {status === 'processing' && <Loader2 className="h-3 w-3 animate-spin text-amber-650" />}
+      {status === 'done' && <CheckCircle2 className="h-3 w-3 text-emerald-650" />}
       {status === 'error' && <AlertCircle className="h-3 w-3 text-red-500" />}
       {s.label}
     </span>
@@ -267,7 +267,7 @@ function Slider({ label, value, unit, min, max, onChange }: SliderProps) {
       <input
         type="range" min={min} max={max} value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="w-full h-1.5 rounded-full appearance-none bg-stone-200 accent-emerald-500 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
+        className="w-full h-1.5 rounded-full appearance-none bg-stone-200 accent-emerald-550 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
       />
     </div>
   );
@@ -799,7 +799,7 @@ export default function MetadataStudio() {
                     <button
                       key={p.id}
                       onClick={() => togglePlatform(p.id)}
-                      className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold border flex items-center gap-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-550 ${
+                      className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold border flex items-center gap-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
                         active ? activeClass : 'border-stone-200 text-stone-500 bg-stone-50/50 hover:border-stone-300 hover:text-stone-700'
                       }`}
                     >
@@ -977,7 +977,8 @@ export default function MetadataStudio() {
               </div>
 
               <div className="flex flex-wrap gap-2.5 pt-1">
-                <button onClick={handleGenerate} className="flex-1 flex items-center justify-center gap-2 bg-emerald-550 hover:bg-emerald-600 text-white px-5 py-2.5 rounded-lg font-extrabold text-sm transition-colors shadow">
+                {/* Fixed invalid color 'bg-emerald-550' with compiled standard 'bg-emerald-500' */}
+                <button onClick={handleGenerate} className="flex-1 flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-650 text-white px-5 py-2.5 rounded-lg font-extrabold text-sm transition-colors shadow">
                   <Play className="h-4 w-4 fill-white" /> Generate metadata
                 </button>
                 <button onClick={handleExportCSV} className="flex items-center gap-2 border border-emerald-600 text-emerald-600 hover:bg-emerald-50/50 px-4 py-2.5 rounded-lg font-bold text-sm transition-colors bg-white shadow-sm">
@@ -1043,7 +1044,7 @@ export default function MetadataStudio() {
                     ) : editingId === f.id ? (
                       <div className="space-y-2">
                         <textarea value={f.result?.title || ''} onChange={(e) => updateResult(f.id, { title: e.target.value })} rows={1} className="w-full bg-white border border-stone-250 rounded-lg px-3 py-2 text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none" />
-                        <textarea value={f.result?.description || ''} onChange={(e) => updateResult(f.id, { description: e.target.value })} rows={2} className="w-full bg-white border border-stone-250 rounded-lg px-3 py-2 text-xs text-stone-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none" />
+                        <textarea value={f.result?.description || ''} onChange={(e) => updateResult(f.id, { description: e.target.value })} rows={2} className="w-full bg-white border border-stone-250 rounded-lg px-3 py-2 text-xs text-stone-750 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none" />
                         <input
                           value={f.result?.keywords?.join(', ') || ''}
                           onChange={(e) => updateResult(f.id, { keywords: e.target.value.split(',').map((k) => k.trim()).filter(Boolean) })}
@@ -1082,7 +1083,7 @@ export default function MetadataStudio() {
           <div className="relative w-full max-w-md bg-white border border-stone-200 rounded-2xl p-6 shadow-2xl space-y-4">
             <button
               onClick={() => setShowAuthModal(false)}
-              className="absolute right-4 top-4 text-stone-400 hover:text-stone-650"
+              className="absolute right-4 top-4 text-stone-400 hover:text-stone-655"
             >
               <X className="h-5 w-5" />
             </button>
@@ -1129,7 +1130,7 @@ export default function MetadataStudio() {
             <div className="text-center pt-2 border-t border-stone-200">
               <button
                 onClick={() => setIsSignUp(!isSignUp)}
-                className="text-xs text-emerald-600 hover:text-emerald-700 font-bold underline underline-offset-2"
+                className="text-xs text-emerald-600 hover:text-emerald-750 font-bold underline underline-offset-2"
               >
                 {isSignUp ? 'Already have an account? Sign In' : 'New here? Create an Account'}
               </button>
