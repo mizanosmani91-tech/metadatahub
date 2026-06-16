@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     let finalApiKey = apiKey;
     let userId: string | null = null;
 
-    // 1. If user did NOT provide their own API key, enforce login and credit check
+    // 1. Enforce login and credit check if user did NOT provide their own API key
     if (!finalApiKey) {
       const authHeader = req.headers.get('Authorization');
       if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
       const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
 
       if (authError || !user) {
-        return NextResponse.json({ error: 'Session expired or invalid user token.' }, { status: 401 });
+        return NextResponse.json({ error: 'Session expired or invalid token.' }, { status: 401 });
       }
 
       userId = user.id;
@@ -59,24 +59,26 @@ export async function POST(req: NextRequest) {
       }
 
       if (profile.credits <= 0) {
-        return NextResponse.json({ error: 'Insufficient credits. Please add your own API key to continue.' }, { status: 403 });
+        return NextResponse.json({ error: 'Insufficient credits. Please add your own API key.' }, { status: 403 });
       }
 
-      // Fallback to system admin keys
-      if (provider === 'gemini-1.5-flash') finalApiKey = process.env.GEMINI_API_KEY;
-      else if (provider === 'gpt-4o') finalApiKey = process.env.OPENAI_API_KEY;
-      else if (provider === 'claude-3-5') finalApiKey = process.env.ANTHROPIC_API_KEY;
+      // System Fallback Keys configuration on server
+      if (provider.startsWith('gemini')) finalApiKey = process.env.GEMINI_API_KEY;
+      else if (provider.startsWith('gpt')) finalApiKey = process.env.OPENAI_API_KEY;
+      else if (provider.startsWith('claude')) finalApiKey = process.env.ANTHROPIC_API_KEY;
 
       if (!finalApiKey) {
-        return NextResponse.json({ error: `System API key for ${provider} is not configured on server.` }, { status: 500 });
+        return NextResponse.json({ error: `System API key for ${provider} is not configured.` }, { status: 500 });
       }
     }
 
     const prompt = buildPrompt(titleLength, descLength, keywordCount);
     let raw = '';
 
-    // 2. Call the AI models
-    if (provider === 'claude-3-5') {
+    // 2. Call the AI models dynamically based on selection
+    if (provider.startsWith('claude')) {
+      const selectedModel = provider === 'claude-3-haiku' ? 'claude-3-haiku-20240307' : 'claude-3-5-sonnet-20241022';
+      
       const res = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
@@ -85,7 +87,7 @@ export async function POST(req: NextRequest) {
           'anthropic-version': '2023-06-01',
         },
         body: JSON.stringify({
-          model: 'claude-3-5-sonnet-20241022',
+          model: selectedModel,
           max_tokens: 600,
           messages: [
             {
@@ -102,12 +104,14 @@ export async function POST(req: NextRequest) {
       if (!res.ok) throw new Error(data.error?.message || 'Claude request failed');
       raw = data.content?.[0]?.text || '';
 
-    } else if (provider === 'gpt-4o') {
+    } else if (provider.startsWith('gpt')) {
+      const selectedModel = provider === 'gpt-4o-mini' ? 'gpt-4o-mini' : 'gpt-4o';
+
       const res = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: { 'content-type': 'application/json', authorization: `Bearer ${finalApiKey}` },
         body: JSON.stringify({
-          model: 'gpt-4o',
+          model: selectedModel,
           response_format: { type: 'json_object' },
           messages: [
             {
@@ -124,9 +128,14 @@ export async function POST(req: NextRequest) {
       if (!res.ok) throw new Error(data.error?.message || 'OpenAI request failed');
       raw = data.choices?.[0]?.message?.content || '';
 
-    } else if (provider === 'gemini-1.5-flash') {
+    } else if (provider.startsWith('gemini')) {
+      // Map Gemini model aliases to actual Google API names
+      let selectedModel = 'gemini-1.5-flash';
+      if (provider === 'gemini-1.5-pro') selectedModel = 'gemini-1.5-pro';
+      else if (provider === 'gemini-1.0-pro') selectedModel = 'gemini-1.0-pro';
+
       const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${finalApiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${finalApiKey}`,
         {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
@@ -160,7 +169,6 @@ export async function POST(req: NextRequest) {
     if (userId && !apiKey) {
       const { error: deductError } = await supabaseAdmin.rpc('decrement_credits', { user_id: userId });
       
-      // Fallback if RPC function is not created: manually decrement credits
       if (deductError) {
         await supabaseAdmin
           .from('profiles')

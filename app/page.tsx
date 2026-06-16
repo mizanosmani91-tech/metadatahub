@@ -5,7 +5,7 @@ import {
   Aperture, Upload, SlidersHorizontal, KeyRound, Eye, EyeOff,
   Play, Download, History, Trash2, X, CheckCircle2, Loader2,
   AlertCircle, Search, Coins, ChevronDown, Pencil, RefreshCw, Copy,
-  FileImage, FileVideo, FileCode, FileText, HelpCircle, ListChecks, LogOut, LogIn
+  FileImage, FileVideo, FileCode, FileText, HelpCircle, ListChecks, LogOut, LogIn, ExternalLink, Tags
 } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 
@@ -102,6 +102,24 @@ const PLATFORM_ACCENTS: Record<string, string> = {
   rose: 'border-rose-400 text-rose-750 bg-rose-50',
   blue: 'border-blue-400 text-blue-750 bg-blue-50',
   teal: 'border-teal-500 text-teal-750 bg-teal-50',
+};
+
+// Expanded AI Models List (Free and Paid)
+const AI_MODELS = [
+  { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash (Free / Paid)', platform: 'google' },
+  { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro (Precise / Paid)', platform: 'google' },
+  { id: 'gemini-1.0-pro', name: 'Gemini 1.0 Pro (Standard)', platform: 'google' },
+  { id: 'gpt-4o', name: 'GPT-4o (Premium Quality)', platform: 'openai' },
+  { id: 'gpt-4o-mini', name: 'GPT-4o mini (Fast & Budget)', platform: 'openai' },
+  { id: 'claude-3-5-sonnet', name: 'Claude 3.5 Sonnet (Accurate)', platform: 'anthropic' },
+  { id: 'claude-3-haiku', name: 'Claude 3 Haiku (Ultra-Fast)', platform: 'anthropic' },
+];
+
+// Target URLs for dynamic "Get API" redirection
+const API_KEY_URLS: Record<string, string> = {
+  google: 'https://aistudio.google.com/',
+  openai: 'https://platform.openai.com/api-keys',
+  anthropic: 'https://console.anthropic.com/',
 };
 
 const KEYWORD_POOL: string[] = [
@@ -207,17 +225,17 @@ const nextId = () => idCounter++;
 
 function StatusPill({ status }: { status: string }) {
   const map: Record<string, { label: string; cls: string }> = {
-    queued: { label: 'Queued', cls: 'bg-stone-100 text-stone-600 border-stone-250' },
-    processing: { label: 'Processing', cls: 'bg-amber-50 text-amber-700 border-amber-200/60' },
-    done: { label: 'Done', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200/60' },
+    queued: { label: 'Queued', cls: 'bg-stone-100 text-stone-600 border-stone-200' },
+    processing: { label: 'Processing', cls: 'bg-amber-50 text-amber-700 border-amber-200/60 shadow-sm' },
+    done: { label: 'Done', cls: 'bg-emerald-50 text-emerald-750 border-emerald-200/60 shadow-sm' },
     error: { label: 'Failed', cls: 'bg-red-50 text-red-600 border-red-200/60' },
   };
   const s = map[status] || map.queued;
   return (
     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border ${s.cls}`}>
-      {status === 'processing' && <Loader2 className="h-3 w-3 animate-spin text-amber-650" />}
-      {status === 'done' && <CheckCircle2 className="h-3 w-3" />}
-      {status === 'error' && <AlertCircle className="h-3 w-3" />}
+      {status === 'processing' && <Loader2 className="h-3 w-3 animate-spin text-amber-600" />}
+      {status === 'done' && <CheckCircle2 className="h-3 w-3 text-emerald-600" />}
+      {status === 'error' && <AlertCircle className="h-3 w-3 text-red-500" />}
       {s.label}
     </span>
   );
@@ -230,8 +248,8 @@ function Toggle({ checked, onChange, label }: ToggleProps) {
       onClick={() => onChange(!checked)}
       aria-pressed={checked}
       aria-label={label}
-      className={`relative inline-flex h-6 w-11 items-center rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 ${
-        checked ? 'bg-amber-600 border-amber-500' : 'bg-stone-200 border-stone-300'
+      className={`relative inline-flex h-6 w-11 items-center rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
+        checked ? 'bg-emerald-600 border-emerald-500' : 'bg-stone-200 border-stone-300'
       }`}
     >
       <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${checked ? 'translate-x-6' : 'translate-x-1'}`} />
@@ -244,12 +262,12 @@ function Slider({ label, value, unit, min, max, onChange }: SliderProps) {
     <div>
       <div className="flex justify-between items-baseline text-xs font-bold text-stone-500 mb-2 tracking-wide">
         <span>{label}</span>
-        <span className="font-mono text-amber-600">{value}{unit}</span>
+        <span className="font-mono text-emerald-600">{value}{unit}</span>
       </div>
       <input
         type="range" min={min} max={max} value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="w-full h-1.5 rounded-full appearance-none bg-stone-200 accent-amber-500 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
+        className="w-full h-1.5 rounded-full appearance-none bg-stone-200 accent-emerald-500 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
       />
     </div>
   );
@@ -273,6 +291,9 @@ export default function MetadataStudio() {
   const [rpm, setRpm] = useState<number>(15);
   const [customPrompt, setCustomPrompt] = useState<string>('');
   const [renameOnDownload, setRenameOnDownload] = useState<boolean>(true);
+  
+  // Feature: Fixed/Static Keywords to append to all files
+  const [staticKeywords, setStaticKeywords] = useState<string>('');
 
   // File queue + results
   const [files, setFiles] = useState<QueueFile[]>([]);
@@ -304,7 +325,7 @@ export default function MetadataStudio() {
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3200);
   };
 
-  // Auth & Session listener
+  // Auth & Session listener + Load locally saved settings from LocalStorage
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
@@ -323,12 +344,39 @@ export default function MetadataStudio() {
       }
     });
 
+    // Load local settings
+    const cachedApiKey = localStorage.getItem('apiKey') || '';
+    const cachedTitleLength = localStorage.getItem('titleLength');
+    const cachedDescLength = localStorage.getItem('descLength');
+    const cachedKeywordCount = localStorage.getItem('keywordCount');
+    const cachedStaticKeywords = localStorage.getItem('staticKeywords') || '';
+    const cachedPlatforms = localStorage.getItem('selectedPlatforms');
+
+    if (cachedApiKey) setApiKey(cachedApiKey);
+    if (cachedTitleLength) setTitleLength(Number(cachedTitleLength));
+    if (cachedDescLength) setDescLength(Number(cachedDescLength));
+    if (cachedKeywordCount) setKeywordCount(Number(cachedKeywordCount));
+    if (cachedStaticKeywords) setStaticKeywords(cachedStaticKeywords);
+    if (cachedPlatforms) {
+      try { setSelectedPlatforms(JSON.parse(cachedPlatforms)); } catch (e) {}
+    }
+
     return () => {
       subscription.unsubscribe();
       files.forEach((f) => f.previewUrl && URL.revokeObjectURL(f.previewUrl));
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const saveSettingsLocally = () => {
+    localStorage.setItem('apiKey', apiKey);
+    localStorage.setItem('titleLength', String(titleLength));
+    localStorage.setItem('descLength', String(descLength));
+    localStorage.setItem('keywordCount', String(keywordCount));
+    localStorage.setItem('staticKeywords', staticKeywords);
+    localStorage.setItem('selectedPlatforms', JSON.stringify(selectedPlatforms));
+    pushToast('Your settings have been saved locally!', 'success');
+  };
 
   const fetchUserProfile = async (userId: string) => {
     try {
@@ -481,6 +529,12 @@ export default function MetadataStudio() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Generation failed');
       
+      // Feature implementation: Merge AI output keywords with our static default keywords, avoiding duplicates
+      const finalGeneratedKeywords = data.keywords || [];
+      const userStaticKeywords = staticKeywords.split(',').map(k => k.trim().toLowerCase()).filter(Boolean);
+      const mergedKeywords = Array.from(new Set([...finalGeneratedKeywords, ...userStaticKeywords]));
+      data.keywords = mergedKeywords;
+
       setFiles((prev) => prev.map((f) => (f.id === id ? { ...f, status: 'done', result: data } : f)));
       
       // Refresh user credits if system key was used
@@ -635,23 +689,29 @@ export default function MetadataStudio() {
   const togglePlatform = (id: string) =>
     setSelectedPlatforms((prev) => (prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]));
 
+  // Dynamically find API Portal URL based on selected model's platform
+  const getSelectedModelPlatform = () => {
+    const selected = AI_MODELS.find(m => m.id === aiProvider);
+    return selected ? selected.platform : 'google';
+  };
+
   return (
-    <div className="min-h-screen bg-stone-50 text-stone-800 font-sans antialiased">
+    <div className="min-h-screen bg-stone-50 text-stone-850 font-sans antialiased">
       <style>{`
         .sprocket {
-          background-image: radial-gradient(circle, rgba(161, 98, 7, 0.15) 2px, transparent 2.6px);
+          background-image: radial-gradient(circle, rgba(16, 185, 129, 0.12) 2px, transparent 2.6px);
           background-repeat: repeat-x;
           background-size: 18px 100%;
           background-position: center;
         }
         .qscroll::-webkit-scrollbar { width: 6px; }
-        .qscroll::-webkit-scrollbar-thumb { background: #d6d3d1; border-radius: 4px; }
+        .qscroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
       `}</style>
 
       {/* Header */}
       <header className="border-b border-stone-200 bg-white/95 backdrop-blur px-6 py-3.5 flex items-center justify-between sticky top-0 z-30 shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="bg-amber-500 p-2 rounded-lg shadow-sm">
+          <div className="bg-emerald-500 p-2 rounded-lg shadow-sm">
             <Aperture className="h-5 w-5 text-white" />
           </div>
           <div>
@@ -663,7 +723,7 @@ export default function MetadataStudio() {
           {user ? (
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2 text-xs font-bold text-stone-700 bg-stone-100 border border-stone-200 px-3 py-2 rounded-lg">
-                <Coins className="h-4 w-4 text-amber-500" />
+                <Coins className="h-4 w-4 text-emerald-500" />
                 <span className="font-mono">{credits}</span><span className="text-stone-400">/ credits</span>
               </div>
               <span className="text-xs text-stone-500 hidden md:inline truncate max-w-[120px]">{user.email}</span>
@@ -677,14 +737,14 @@ export default function MetadataStudio() {
           ) : (
             <button
               onClick={() => setShowAuthModal(true)}
-              className="flex items-center gap-2 text-xs font-extrabold text-white bg-amber-500 hover:bg-amber-600 px-4 py-2 rounded-lg transition-colors shadow"
+              className="flex items-center gap-2 text-xs font-extrabold text-white bg-emerald-500 hover:bg-emerald-600 px-4 py-2 rounded-lg transition-colors shadow"
             >
               <LogIn className="h-4 w-4" /> Sign In / Sign Up
             </button>
           )}
           <button
             onClick={() => setHistoryOpen(true)}
-            className="flex items-center gap-2 text-xs font-bold text-stone-600 hover:text-stone-900 bg-stone-100 hover:bg-stone-200 px-3.5 py-2 rounded-lg border border-stone-200 transition-colors"
+            className="flex items-center gap-2 text-xs font-bold text-stone-650 hover:text-stone-900 bg-stone-100 hover:bg-stone-200 px-3.5 py-2 rounded-lg border border-stone-200 transition-colors"
           >
             <History className="h-4 w-4" /> History
           </button>
@@ -701,7 +761,7 @@ export default function MetadataStudio() {
             return (
               <div key={label} className="flex items-center gap-2 shrink-0">
                 <div className={`flex items-center gap-2 px-3 py-1 rounded-full border text-xs font-bold ${
-                  active ? 'border-amber-500 text-amber-700 bg-amber-50' :
+                  active ? 'border-emerald-500 text-emerald-700 bg-emerald-50/50' :
                   complete ? 'border-stone-300 text-stone-400 bg-stone-50' : 'border-stone-200 text-stone-400'
                 }`}>
                   <span className="font-mono">{String(n).padStart(2, '0')}</span>
@@ -719,9 +779,9 @@ export default function MetadataStudio() {
 
         {/* Controls */}
         <aside className="lg:col-span-4 space-y-5">
-          <div className="bg-white border border-stone-200 shadow-sm rounded-2xl p-5 space-y-5">
-            <div className="flex items-center gap-2 border-b border-stone-250 pb-3">
-              <SlidersHorizontal className="h-4.5 w-4.5 text-amber-500" />
+          <div className="bg-white border border-emerald-100 shadow-[0_12px_30px_rgba(16,185,129,0.06)] rounded-2xl p-5 space-y-5">
+            <div className="flex items-center gap-2 border-b border-stone-200 pb-3">
+              <SlidersHorizontal className="h-4.5 w-4.5 text-emerald-500" />
               <h2 className="text-sm font-bold text-stone-800 tracking-wide uppercase">Generation controls</h2>
             </div>
 
@@ -739,7 +799,7 @@ export default function MetadataStudio() {
                     <button
                       key={p.id}
                       onClick={() => togglePlatform(p.id)}
-                      className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold border flex items-center gap-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-550 ${
+                      className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold border flex items-center gap-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-550 ${
                         active ? activeClass : 'border-stone-200 text-stone-500 bg-stone-50/50 hover:border-stone-300 hover:text-stone-700'
                       }`}
                     >
@@ -751,20 +811,33 @@ export default function MetadataStudio() {
               </div>
             </div>
 
-            {/* AI engine + key */}
+            {/* AI engine + dynamic "Get API" redirection */}
             <div className="space-y-3 border-t border-stone-200 pt-4">
               <div>
-                <label className="text-xs font-bold text-stone-500 tracking-wide block mb-1.5">AI engine</label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-bold text-stone-500 tracking-wide block">AI engine</label>
+                  <a
+                    href={API_KEY_URLS[getSelectedModelPlatform()]}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 hover:text-emerald-500 transition-colors hover:underline"
+                  >
+                    Get API Key <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
                 <select
                   value={aiProvider}
                   onChange={(e) => setAiProvider(e.target.value)}
-                  className="w-full bg-stone-50 border border-stone-200 rounded-lg px-3 py-2.5 text-sm text-stone-800 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  className="w-full bg-stone-50 border border-stone-200 rounded-lg px-3 py-2.5 text-sm text-stone-850 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
                 >
-                  <option value="gemini-1.5-flash">Google Gemini 1.5 Flash</option>
-                  <option value="gpt-4o">OpenAI GPT-4o</option>
-                  <option value="claude-3-5">Claude 3.5 Sonnet</option>
+                  {AI_MODELS.map((model) => (
+                    <option key={model.id} value={model.id}>
+                      {model.name}
+                    </option>
+                  ))}
                 </select>
               </div>
+              
               <div>
                 <label className="text-xs font-bold text-stone-500 tracking-wide block mb-1.5">API key</label>
                 <div className="relative">
@@ -774,7 +847,7 @@ export default function MetadataStudio() {
                     value={apiKey}
                     onChange={(e) => setApiKey(e.target.value)}
                     placeholder="Paste your key"
-                    className="w-full bg-stone-50 border border-stone-200 rounded-lg pl-9 pr-10 py-2.5 text-sm text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    className="w-full bg-stone-50 border border-stone-200 rounded-lg pl-9 pr-10 py-2.5 text-sm text-stone-850 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                   <button onClick={() => setShowApiKey(!showApiKey)} className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-655">
                     {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -782,6 +855,21 @@ export default function MetadataStudio() {
                 </div>
                 <p className="text-[11px] text-stone-400 mt-1.5">Not stored on our servers. Leave blank to use your accounts balance.</p>
               </div>
+            </div>
+
+            {/* Static Keywords / Tags Pool Manager */}
+            <div className="space-y-2 border-t border-stone-200 pt-4">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-stone-500 tracking-wide">
+                <Tags className="h-4 w-4 text-emerald-500" />
+                <span>Static Keywords (appends to all)</span>
+              </div>
+              <textarea
+                value={staticKeywords}
+                onChange={(e) => setStaticKeywords(e.target.value)}
+                placeholder="tag1, tag2, tag3 (Appends permanently to all files in the batch)"
+                rows={2}
+                className="w-full bg-stone-50 border border-stone-200 rounded-lg px-3 py-2 text-xs text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none"
+              />
             </div>
 
             {/* Sliders */}
@@ -808,7 +896,7 @@ export default function MetadataStudio() {
                       onChange={(e) => setCustomPrompt(e.target.value)}
                       rows={3}
                       placeholder="Override the default instructions sent to the AI engine..."
-                      className="w-full bg-stone-50 border border-stone-200 rounded-lg px-3 py-2.5 text-xs text-stone-750 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none"
+                      className="w-full bg-stone-50 border border-stone-200 rounded-lg px-3 py-2 text-xs text-stone-750 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none"
                     />
                   </div>
                   <div className="flex items-center justify-between font-medium">
@@ -820,8 +908,8 @@ export default function MetadataStudio() {
             </div>
 
             <button
-              onClick={() => pushToast('Settings saved for this session', 'success')}
-              className="w-full bg-stone-100 hover:bg-stone-200 border border-stone-250 text-stone-800 font-bold text-sm py-2.5 rounded-lg transition-colors"
+              onClick={saveSettingsLocally}
+              className="w-full bg-white border border-emerald-500 text-emerald-600 hover:bg-emerald-50 font-bold text-sm py-2.5 rounded-lg transition-colors shadow-sm"
             >
               Save settings
             </button>
@@ -831,20 +919,20 @@ export default function MetadataStudio() {
         {/* Workspace */}
         <section className="lg:col-span-8 space-y-5">
 
-          {/* Dropzone */}
+          {/* Dropzone with Soft Green Dashed Border */}
           <div
             onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
             onDragLeave={() => setIsDragging(false)}
             onDrop={handleDrop}
-            className={`relative rounded-2xl border-2 border-dashed p-8 text-center transition-colors ${
-              isDragging ? 'border-amber-500 bg-amber-50' : 'border-stone-300 bg-stone-50/50 hover:border-stone-400'
+            className={`relative rounded-2xl border-2 border-dashed p-8 text-center transition-colors shadow-[0_12px_30px_rgba(16,185,129,0.03)] ${
+              isDragging ? 'border-emerald-500 bg-emerald-50/40' : 'border-emerald-200 bg-white hover:border-emerald-400'
             }`}
           >
             <div className="sprocket h-2.5 w-full absolute top-0 left-0 rounded-t-2xl opacity-40" />
             <input ref={fileInputRef} type="file" multiple onChange={handleInputChange} className="absolute inset-0 opacity-0 cursor-pointer z-10" />
             <div className="space-y-3 max-w-md mx-auto py-5">
-              <div className="mx-auto w-14 h-14 bg-white border border-stone-200 rounded-xl flex items-center justify-center shadow-sm">
-                <Upload className="h-6 w-6 text-amber-500" />
+              <div className="mx-auto w-14 h-14 bg-stone-50 border border-emerald-100 rounded-xl flex items-center justify-center shadow-sm">
+                <Upload className="h-6 w-6 text-emerald-500" />
               </div>
               <div>
                 <h3 className="text-base font-bold text-stone-800">Drop files, or click to browse</h3>
@@ -852,7 +940,7 @@ export default function MetadataStudio() {
               </div>
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="px-5 py-2.5 bg-amber-500 hover:bg-amber-650 text-white rounded-lg text-xs font-extrabold transition-colors relative z-0 shadow"
+                className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-xs font-extrabold transition-colors relative z-0 shadow-sm"
               >
                 Browse files
               </button>
@@ -861,7 +949,7 @@ export default function MetadataStudio() {
 
           {/* Queue */}
           {files.length > 0 && (
-            <div className="bg-white border border-stone-200 rounded-2xl p-5 space-y-3 shadow-sm">
+            <div className="bg-white border border-emerald-100 rounded-2xl p-5 space-y-3 shadow-[0_12px_30px_rgba(16,185,129,0.06)]">
               <div className="flex justify-between items-center border-b border-stone-200 pb-3">
                 <span className="text-sm font-bold text-stone-800">Queue \u00b7 <span className="font-mono text-stone-500">{files.length}</span> files \u00b7 <span className="font-mono text-emerald-600 font-extrabold">{doneCount}</span> done</span>
                 <button onClick={clearAll} className="text-xs text-stone-400 hover:text-red-500 font-bold flex items-center gap-1.5">
@@ -889,13 +977,13 @@ export default function MetadataStudio() {
               </div>
 
               <div className="flex flex-wrap gap-2.5 pt-1">
-                <button onClick={handleGenerate} className="flex-1 flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-5 py-2.5 rounded-lg font-extrabold text-sm transition-colors shadow">
+                <button onClick={handleGenerate} className="flex-1 flex items-center justify-center gap-2 bg-emerald-550 hover:bg-emerald-600 text-white px-5 py-2.5 rounded-lg font-extrabold text-sm transition-colors shadow">
                   <Play className="h-4 w-4 fill-white" /> Generate metadata
                 </button>
-                <button onClick={handleExportCSV} className="flex items-center gap-2 border border-emerald-600 text-emerald-600 hover:bg-emerald-50/50 px-4 py-2.5 rounded-lg font-bold text-sm transition-colors bg-white">
+                <button onClick={handleExportCSV} className="flex items-center gap-2 border border-emerald-600 text-emerald-600 hover:bg-emerald-50/50 px-4 py-2.5 rounded-lg font-bold text-sm transition-colors bg-white shadow-sm">
                   <Download className="h-4 w-4" /> Export CSV
                 </button>
-                <button onClick={handleDownloadFiles} className="flex items-center gap-2 border border-stone-250 text-stone-600 hover:bg-stone-50 px-4 py-2.5 rounded-lg font-bold text-sm transition-colors bg-white">
+                <button onClick={handleDownloadFiles} className="flex items-center gap-2 border border-stone-250 text-stone-600 hover:bg-stone-50 px-4 py-2.5 rounded-lg font-bold text-sm transition-colors bg-white shadow-sm">
                   <Download className="h-4 w-4" /> Download files
                 </button>
               </div>
@@ -903,10 +991,10 @@ export default function MetadataStudio() {
           )}
 
           {/* Results */}
-          <div className="bg-white border border-stone-200 rounded-2xl p-5 shadow-sm">
+          <div className="bg-white border border-emerald-100 rounded-2xl p-5 shadow-[0_12px_30px_rgba(16,185,129,0.06)]">
             <div className="flex items-center justify-between border-b border-stone-200 pb-3 mb-1 gap-3">
               <div className="flex items-center gap-2">
-                <ListChecks className="h-4.5 w-4.5 text-amber-500" />
+                <ListChecks className="h-4.5 w-4.5 text-emerald-500" />
                 <h2 className="text-sm font-bold text-stone-800 tracking-wide uppercase">Generated outputs</h2>
               </div>
               {files.length > 0 && (
@@ -916,7 +1004,7 @@ export default function MetadataStudio() {
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     placeholder="Filter by filename"
-                    className="bg-stone-50 border border-stone-200 rounded-lg pl-8 pr-3 py-1.5 text-xs text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500 w-44"
+                    className="bg-stone-50 border border-stone-200 rounded-lg pl-8 pr-3 py-1.5 text-xs text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 w-44"
                   />
                 </div>
               )}
@@ -940,9 +1028,9 @@ export default function MetadataStudio() {
                         <StatusPill status={f.status} />
                         {f.status === 'done' && (
                           <>
-                            <button onClick={() => regenerateOne(f.id)} title="Regenerate" className="text-stone-400 hover:text-amber-550"><RefreshCw className="h-3.5 w-3.5" /></button>
-                            <button onClick={() => setEditingId(editingId === f.id ? null : f.id)} title="Edit" className="text-stone-400 hover:text-amber-550"><Pencil className="h-3.5 w-3.5" /></button>
-                            <button onClick={() => copyResult(f)} title="Copy" className="text-stone-400 hover:text-amber-550"><Copy className="h-3.5 w-3.5" /></button>
+                            <button onClick={() => regenerateOne(f.id)} title="Regenerate" className="text-stone-400 hover:text-emerald-550"><RefreshCw className="h-3.5 w-3.5" /></button>
+                            <button onClick={() => setEditingId(editingId === f.id ? null : f.id)} title="Edit" className="text-stone-400 hover:text-emerald-550"><Pencil className="h-3.5 w-3.5" /></button>
+                            <button onClick={() => copyResult(f)} title="Copy" className="text-stone-400 hover:text-emerald-550"><Copy className="h-3.5 w-3.5" /></button>
                           </>
                         )}
                       </div>
@@ -954,14 +1042,14 @@ export default function MetadataStudio() {
                       </p>
                     ) : editingId === f.id ? (
                       <div className="space-y-2">
-                        <textarea value={f.result?.title || ''} onChange={(e) => updateResult(f.id, { title: e.target.value })} rows={1} className="w-full bg-white border border-stone-250 rounded-lg px-3 py-2 text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none" />
-                        <textarea value={f.result?.description || ''} onChange={(e) => updateResult(f.id, { description: e.target.value })} rows={2} className="w-full bg-white border border-stone-250 rounded-lg px-3 py-2 text-xs text-stone-700 focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none" />
+                        <textarea value={f.result?.title || ''} onChange={(e) => updateResult(f.id, { title: e.target.value })} rows={1} className="w-full bg-white border border-stone-250 rounded-lg px-3 py-2 text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none" />
+                        <textarea value={f.result?.description || ''} onChange={(e) => updateResult(f.id, { description: e.target.value })} rows={2} className="w-full bg-white border border-stone-250 rounded-lg px-3 py-2 text-xs text-stone-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none" />
                         <input
                           value={f.result?.keywords?.join(', ') || ''}
                           onChange={(e) => updateResult(f.id, { keywords: e.target.value.split(',').map((k) => k.trim()).filter(Boolean) })}
-                          className="w-full bg-white border border-stone-250 rounded-lg px-3 py-2 text-xs font-mono text-stone-700 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                          className="w-full bg-white border border-stone-250 rounded-lg px-3 py-2 text-xs font-mono text-stone-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                         />
-                        <button onClick={() => setEditingId(null)} className="text-xs font-bold text-amber-600 hover:text-amber-500">Done editing</button>
+                        <button onClick={() => setEditingId(null)} className="text-xs font-bold text-emerald-600 hover:text-emerald-500">Done editing</button>
                       </div>
                     ) : (
                       <div className="space-y-2">
@@ -1015,7 +1103,7 @@ export default function MetadataStudio() {
                   value={authEmail}
                   onChange={(e) => setAuthEmail(e.target.value)}
                   placeholder="name@example.com"
-                  className="w-full bg-stone-50 border border-stone-200 rounded-lg px-3.5 py-2.5 text-sm text-stone-900 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  className="w-full bg-stone-50 border border-stone-200 rounded-lg px-3.5 py-2.5 text-sm text-stone-900 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
               <div>
@@ -1026,13 +1114,13 @@ export default function MetadataStudio() {
                   value={authPassword}
                   onChange={(e) => setAuthPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full bg-stone-50 border border-stone-200 rounded-lg px-3.5 py-2.5 text-sm text-stone-900 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  className="w-full bg-stone-50 border border-stone-200 rounded-lg px-3.5 py-2.5 text-sm text-stone-900 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
               <button
                 type="submit"
                 disabled={authLoading}
-                className="w-full bg-amber-500 hover:bg-amber-600 disabled:bg-amber-700 text-white font-bold text-sm py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2 shadow"
+                className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-700 text-white font-bold text-sm py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2 shadow"
               >
                 {authLoading && <Loader2 className="h-4 w-4 animate-spin" />}
                 {isSignUp ? 'Register Account' : 'Sign In'}
@@ -1041,7 +1129,7 @@ export default function MetadataStudio() {
             <div className="text-center pt-2 border-t border-stone-200">
               <button
                 onClick={() => setIsSignUp(!isSignUp)}
-                className="text-xs text-amber-600 hover:text-amber-700 font-bold underline underline-offset-2"
+                className="text-xs text-emerald-600 hover:text-emerald-700 font-bold underline underline-offset-2"
               >
                 {isSignUp ? 'Already have an account? Sign In' : 'New here? Create an Account'}
               </button>
@@ -1082,7 +1170,7 @@ export default function MetadataStudio() {
           <div key={t.id} className={`flex items-center gap-2 px-3.5 py-2.5 rounded-lg border text-xs font-semibold shadow-lg ${
             t.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' :
             t.type === 'error' ? 'bg-red-50 border-red-200 text-red-800' :
-            'bg-white border-stone-200 text-stone-800'
+            'bg-white border-stone-200 text-stone-850'
           }`}>
             {t.type === 'success' && <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-emerald-600" />}
             {t.type === 'error' && <AlertCircle className="h-4 w-4 flex-shrink-0 text-red-600" />}
