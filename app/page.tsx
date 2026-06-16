@@ -10,10 +10,71 @@ import {
 import { supabase } from '../utils/supabase';
 
 /* ---------------------------------------------------------------
+   Interfaces & Types
+--------------------------------------------------------------- */
+
+interface Platform {
+  id: string;
+  name: string;
+  accent: string;
+}
+
+interface QueueFile {
+  id: number;
+  file: File;
+  name: string;
+  size: number;
+  kind: 'image' | 'video' | 'vector' | 'doc';
+  previewUrl: string | null;
+  status: 'queued' | 'processing' | 'done' | 'error';
+  result: {
+    title: string;
+    description: string;
+    keywords: string[];
+  } | null;
+}
+
+interface HistoryItem {
+  id: number;
+  time: string;
+  count: number;
+  platforms: string[];
+}
+
+interface ToastItem {
+  id: number;
+  message: string;
+  type: 'info' | 'success' | 'error';
+}
+
+interface SliderProps {
+  label: string;
+  value: number;
+  unit: string;
+  min: number;
+  max: number;
+  onChange: (val: number) => void;
+}
+
+interface ToggleProps {
+  checked: boolean;
+  onChange: (val: boolean) => void;
+  label: string;
+}
+
+interface BuildMetadataParams {
+  name: string;
+  kind: 'image' | 'video' | 'vector' | 'doc';
+  titleLength: number;
+  descLength: number;
+  keywordCount: number;
+}
+
+/* ---------------------------------------------------------------
    Data + helpers
 --------------------------------------------------------------- */
 
-const PLATFORMS = [
+const PLATFORMS: Platform[] = [
   { id: 'general', name: 'General', accent: 'stone' },
   { id: 'adobe', name: 'Adobe Stock', accent: 'orange' },
   { id: 'shutterstock', name: 'Shutterstock', accent: 'red' },
@@ -28,7 +89,7 @@ const PLATFORMS = [
   { id: 'pixabay', name: 'Pixabay', accent: 'teal' },
 ];
 
-const PLATFORM_ACCENTS = {
+const PLATFORM_ACCENTS: Record<string, string> = {
   stone: 'border-stone-400 text-stone-800 bg-stone-100',
   orange: 'border-orange-400 text-orange-700 bg-orange-50',
   red: 'border-red-400 text-red-750 bg-red-50',
@@ -43,7 +104,7 @@ const PLATFORM_ACCENTS = {
   teal: 'border-teal-500 text-teal-750 bg-teal-50',
 };
 
-const KEYWORD_POOL = [
+const KEYWORD_POOL: string[] = [
   'business','technology','abstract','background','concept','design','modern','creative',
   'digital','people','lifestyle','travel','food','industry','finance','marketing','education',
   'health','sustainability','minimal','texture','pattern','light','color','professional',
@@ -53,7 +114,7 @@ const KEYWORD_POOL = [
   'celebration','holiday','winter','summer',
 ];
 
-function extKind(name) {
+function extKind(name: string): 'image' | 'video' | 'vector' | 'doc' {
   const ext = (name.split('.').pop() || '').toLowerCase();
   if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'tiff', 'bmp'].includes(ext)) return 'image';
   if (['mp4', 'mov', 'avi', 'webm', 'mkv'].includes(ext)) return 'video';
@@ -61,19 +122,19 @@ function extKind(name) {
   return 'doc';
 }
 
-function KindIcon({ kind, className }) {
+function KindIcon({ kind, className }: { kind: string; className?: string }) {
   if (kind === 'image') return <FileImage className={className} />;
   if (kind === 'video') return <FileVideo className={className} />;
   if (kind === 'vector') return <FileCode className={className} />;
   return <FileText className={className} />;
 }
 
-function formatBytes(bytes) {
+function formatBytes(bytes: number): string {
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + ' KB';
   return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
 }
 
-function titleCaseFromName(name) {
+function titleCaseFromName(name: string): string {
   const base = name.replace(/\.[^/.]+$/, '');
   return base
     .replace(/[-_]+/g, ' ')
@@ -85,18 +146,18 @@ function titleCaseFromName(name) {
     .join(' ');
 }
 
-function sanitizeFilename(name) {
+function sanitizeFilename(name: string): string {
   return name.replace(/[\\/:*?"<>|]+/g, '').trim() || 'untitled';
 }
 
-const DESCRIPTORS = {
+const DESCRIPTORS: Record<string, string> = {
   image: 'high resolution stock photograph',
   video: 'cinematic stock video clip',
   vector: 'scalable vector illustration',
   doc: 'editable design asset',
 };
 
-function buildMetadata({ name, kind, titleLength, descLength, keywordCount }) {
+function buildMetadata({ name, kind, titleLength, descLength, keywordCount }: BuildMetadataParams) {
   const base = titleCaseFromName(name) || 'Untitled Asset';
   let title = `${base} ${DESCRIPTORS[kind]}`.trim();
   if (title.length > titleLength) title = title.slice(0, Math.max(titleLength - 1, 1)).trim() + '\u2026';
@@ -111,16 +172,16 @@ function buildMetadata({ name, kind, titleLength, descLength, keywordCount }) {
   return { title, description, keywords };
 }
 
-function charTone(len, limit) {
+function charTone(len: number, limit: number): string {
   const ratio = len / limit;
   if (ratio > 1) return 'text-red-500';
   if (ratio > 0.9) return 'text-amber-600';
   return 'text-emerald-600';
 }
 
-function toCSV(rows) {
+function toCSV(rows: any[]): string {
   const header = ['Filename', 'Title', 'Description', 'Keywords', 'Platforms'];
-  const esc = (v) => `"${String(v).replace(/"/g, '""')}"`;
+  const esc = (v: any) => `"${String(v).replace(/"/g, '""')}"`;
   const lines = [header.map(esc).join(',')];
   rows.forEach((r) => {
     lines.push([r.filename, r.title, r.description, r.keywords.join('; '), r.platforms.join('; ')].map(esc).join(','));
@@ -128,7 +189,7 @@ function toCSV(rows) {
   return lines.join('\n');
 }
 
-function fileToBase64(file) {
+function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result).split(',')[1]);
@@ -144,8 +205,8 @@ const nextId = () => idCounter++;
    Small reusable pieces
 --------------------------------------------------------------- */
 
-function StatusPill({ status }) {
-  const map = {
+function StatusPill({ status }: { status: string }) {
+  const map: Record<string, { label: string; cls: string }> = {
     queued: { label: 'Queued', cls: 'bg-stone-100 text-stone-600 border-stone-250' },
     processing: { label: 'Processing', cls: 'bg-amber-50 text-amber-700 border-amber-200/60' },
     done: { label: 'Done', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200/60' },
@@ -162,7 +223,7 @@ function StatusPill({ status }) {
   );
 }
 
-function Toggle({ checked, onChange, label }) {
+function Toggle({ checked, onChange, label }: ToggleProps) {
   return (
     <button
       type="button"
@@ -178,7 +239,7 @@ function Toggle({ checked, onChange, label }) {
   );
 }
 
-function Slider({ label, value, unit, min, max, onChange }) {
+function Slider({ label, value, unit, min, max, onChange }: SliderProps) {
   return (
     <div>
       <div className="flex justify-between items-baseline text-xs font-bold text-stone-500 mb-2 tracking-wide">
@@ -200,44 +261,44 @@ function Slider({ label, value, unit, min, max, onChange }) {
 
 export default function MetadataStudio() {
   // Generation settings
-  const [selectedPlatforms, setSelectedPlatforms] = useState(['adobe', 'shutterstock']);
-  const [aiProvider, setAiProvider] = useState('gemini-1.5-flash');
-  const [apiKey, setApiKey] = useState('');
-  const [showApiKey, setShowApiKey] = useState(false);
-  const [titleLength, setTitleLength] = useState(60);
-  const [descLength, setDescLength] = useState(150);
-  const [keywordCount, setKeywordCount] = useState(30);
-  const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [batchSize, setBatchSize] = useState(2);
-  const [rpm, setRpm] = useState(15);
-  const [customPrompt, setCustomPrompt] = useState('');
-  const [renameOnDownload, setRenameOnDownload] = useState(true);
+  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(['adobe', 'shutterstock']);
+  const [aiProvider, setAiProvider] = useState<string>('gemini-1.5-flash');
+  const [apiKey, setApiKey] = useState<string>('');
+  const [showApiKey, setShowApiKey] = useState<boolean>(false);
+  const [titleLength, setTitleLength] = useState<number>(60);
+  const [descLength, setDescLength] = useState<number>(150);
+  const [keywordCount, setKeywordCount] = useState<number>(30);
+  const [advancedOpen, setAdvancedOpen] = useState<boolean>(false);
+  const [batchSize, setBatchSize] = useState<number>(2);
+  const [rpm, setRpm] = useState<number>(15);
+  const [customPrompt, setCustomPrompt] = useState<string>('');
+  const [renameOnDownload, setRenameOnDownload] = useState<boolean>(true);
 
   // File queue + results
-  const [files, setFiles] = useState([]);
-  const [isDragging, setIsDragging] = useState(false);
-  const [editingId, setEditingId] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [files, setFiles] = useState<QueueFile[]>([]);
+  const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [searchTerm, setSearchTerm] = useState<string>('');
 
   // Supabase User & Credits state
-  const [user, setUser] = useState(null);
-  const [credits, setCredits] = useState(0);
-  const [session, setSession] = useState(null);
+  const [user, setUser] = useState<any>(null);
+  const [credits, setCredits] = useState<number>(0);
+  const [session, setSession] = useState<any>(null);
 
   // Auth UI state
-  const [showAuthModal, setShowAuthModal] = useState(false);
-  const [authEmail, setAuthEmail] = useState('');
-  const [authPassword, setAuthPassword] = useState('');
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [authLoading, setAuthLoading] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
+  const [authEmail, setAuthEmail] = useState<string>('');
+  const [authPassword, setAuthPassword] = useState<string>('');
+  const [isSignUp, setIsSignUp] = useState<boolean>(false);
+  const [authLoading, setAuthLoading] = useState<boolean>(false);
 
   // Misc UI state
-  const [historyOpen, setHistoryOpen] = useState(false);
-  const [history, setHistory] = useState([]);
-  const [toasts, setToasts] = useState([]);
-  const fileInputRef = useRef(null);
+  const [historyOpen, setHistoryOpen] = useState<boolean>(false);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const pushToast = (message, type = 'info') => {
+  const pushToast = (message: string, type: 'info' | 'success' | 'error' = 'info') => {
     const id = nextId();
     setToasts((t) => [...t, { id, message, type }]);
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3200);
@@ -269,7 +330,7 @@ export default function MetadataStudio() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const fetchUserProfile = async (userId) => {
+  const fetchUserProfile = async (userId: string) => {
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -280,11 +341,11 @@ export default function MetadataStudio() {
       setCredits(data.credits);
       fetchHistory(userId);
     } catch (err) {
-      console.error('Error fetching profile:', err.message);
+      console.error('Error fetching profile:', err);
     }
   };
 
-  const fetchHistory = async (userId) => {
+  const fetchHistory = async (userId: string) => {
     try {
       const { data, error } = await supabase
         .from('generations')
@@ -292,20 +353,20 @@ export default function MetadataStudio() {
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      setHistory(data.map(h => ({
+      setHistory((data || []).map((h: any) => ({
         id: h.id,
         time: new Date(h.created_at).toLocaleString(),
         count: h.file_count,
         platforms: h.platforms
       })));
     } catch (err) {
-      console.error('Error fetching history:', err.message);
+      console.error('Error fetching history:', err);
     }
   };
 
   /* ---------------- Auth handlers ---------------- */
 
-  const handleAuth = async (e) => {
+  const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthLoading(true);
     try {
@@ -325,7 +386,7 @@ export default function MetadataStudio() {
         pushToast('Successfully logged in!', 'success');
         setShowAuthModal(false);
       }
-    } catch (err) {
+    } catch (err: any) {
       pushToast(err.message, 'error');
     } finally {
       setAuthLoading(false);
@@ -339,7 +400,7 @@ export default function MetadataStudio() {
 
   /* ---------------- file queue handlers ---------------- */
 
-  const addFiles = (fileList) => {
+  const addFiles = (fileList: FileList | File[]) => {
     const incoming = Array.from(fileList).map((file) => {
       const kind = extKind(file.name);
       return {
@@ -349,7 +410,7 @@ export default function MetadataStudio() {
         size: file.size,
         kind,
         previewUrl: kind === 'image' ? URL.createObjectURL(file) : null,
-        status: 'queued',
+        status: 'queued' as const,
         result: null,
       };
     });
@@ -357,18 +418,18 @@ export default function MetadataStudio() {
     pushToast(`${incoming.length} file${incoming.length > 1 ? 's' : ''} added to the queue`, 'success');
   };
 
-  const handleInputChange = (e) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length) addFiles(e.target.files);
     e.target.value = '';
   };
 
-  const handleDrop = (e) => {
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragging(false);
     if (e.dataTransfer.files && e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
   };
 
-  const removeFile = (id) => {
+  const removeFile = (id: number) => {
     setFiles((prev) => {
       const target = prev.find((f) => f.id === id);
       if (target?.previewUrl) URL.revokeObjectURL(target.previewUrl);
@@ -386,7 +447,7 @@ export default function MetadataStudio() {
 
   const platformNames = () => PLATFORMS.filter((p) => selectedPlatforms.includes(p.id)).map((p) => p.name);
 
-  const generateOne = async (id) => {
+  const generateOne = async (id: number) => {
     setFiles((prev) => prev.map((f) => (f.id === id ? { ...f, status: 'processing' } : f)));
     const target = files.find((f) => f.id === id);
     if (!target) return;
@@ -399,7 +460,7 @@ export default function MetadataStudio() {
 
     try {
       const base64 = await fileToBase64(target.file);
-      const headers = { 'content-type': 'application/json' };
+      const headers: Record<string, string> = { 'content-type': 'application/json' };
       
       // Inject user bearer token securely if they don't use their own API key
       if (!apiKey && session?.access_token) {
@@ -425,7 +486,7 @@ export default function MetadataStudio() {
       // Refresh user credits if system key was used
       if (user && !apiKey) fetchUserProfile(user.id);
 
-    } catch (err) {
+    } catch (err: any) {
       setFiles((prev) => prev.map((f) => (f.id === id ? { ...f, status: 'error' } : f)));
       pushToast(err.message || 'Generation failed', 'error');
     }
@@ -468,7 +529,7 @@ export default function MetadataStudio() {
     pushToast(`Generating metadata for ${queued.length} file${queued.length > 1 ? 's' : ''}`, 'info');
   };
 
-  const regenerateOne = (id) => {
+  const regenerateOne = (id: number) => {
     if (!apiKey && credits <= 0) {
       pushToast('No credits left', 'error');
       return;
@@ -478,11 +539,17 @@ export default function MetadataStudio() {
 
   /* ---------------- editing results ---------------- */
 
-  const updateResult = (id, patch) => {
-    setFiles((prev) => prev.map((f) => (f.id === id ? { ...f, result: { ...f.result, ...patch } } : f)));
+  const updateResult = (id: number, patch: any) => {
+    setFiles((prev) => prev.map((f) => {
+      if (f.id === id && f.result) {
+        return { ...f, result: { ...f.result, ...patch } };
+      }
+      return f;
+    }));
   };
 
-  const copyResult = (f) => {
+  const copyResult = (f: QueueFile) => {
+    if (!f.result) return;
     const text = `${f.result.title}\n\n${f.result.description}\n\n${f.result.keywords.join(', ')}`;
     navigator.clipboard?.writeText(text);
     pushToast('Copied to clipboard', 'success');
@@ -507,16 +574,16 @@ export default function MetadataStudio() {
         });
         if (error) throw error;
         fetchHistory(user.id);
-      } catch (err) {
+      } catch (err: any) {
         console.error('Error saving export history:', err.message);
       }
     }
 
     const rows = done.map((f) => ({
       filename: f.name,
-      title: f.result.title,
-      description: f.result.description,
-      keywords: f.result.keywords,
+      title: f.result?.title || '',
+      description: f.result?.description || '',
+      keywords: f.result?.keywords || [],
       platforms: platformNames(),
     }));
     const blob = new Blob([toCSV(rows)], { type: 'text/csv;charset=utf-8;' });
@@ -544,7 +611,8 @@ export default function MetadataStudio() {
     done.forEach((f, idx) => {
       setTimeout(() => {
         const ext = f.name.split('.').pop();
-        const finalName = renameOnDownload ? `${sanitizeFilename(f.result.title)}.${ext}` : f.name;
+        const finalTitle = f.result?.title ? sanitizeFilename(f.result.title) : 'untitled';
+        const finalName = renameOnDownload ? `${finalTitle}.${ext}` : f.name;
         const url = URL.createObjectURL(f.file);
         const a = document.createElement('a');
         a.href = url;
@@ -564,7 +632,7 @@ export default function MetadataStudio() {
   const visibleFiles = files.filter((f) => f.name.toLowerCase().includes(searchTerm.toLowerCase()));
   const step = files.length === 0 ? 1 : files.some((f) => f.status === 'processing') ? 3 : doneCount === files.length ? 4 : 2;
 
-  const togglePlatform = (id) =>
+  const togglePlatform = (id: string) =>
     setSelectedPlatforms((prev) => (prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]));
 
   return (
@@ -708,7 +776,7 @@ export default function MetadataStudio() {
                     placeholder="Paste your key"
                     className="w-full bg-stone-50 border border-stone-200 rounded-lg pl-9 pr-10 py-2.5 text-sm text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
                   />
-                  <button onClick={() => setShowApiKey(!showApiKey)} className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-650">
+                  <button onClick={() => setShowApiKey(!showApiKey)} className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-655">
                     {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
@@ -784,7 +852,7 @@ export default function MetadataStudio() {
               </div>
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-extrabold transition-colors relative z-0 shadow"
+                className="px-5 py-2.5 bg-amber-500 hover:bg-amber-650 text-white rounded-lg text-xs font-extrabold transition-colors relative z-0 shadow"
               >
                 Browse files
               </button>
@@ -886,10 +954,10 @@ export default function MetadataStudio() {
                       </p>
                     ) : editingId === f.id ? (
                       <div className="space-y-2">
-                        <textarea value={f.result.title} onChange={(e) => updateResult(f.id, { title: e.target.value })} rows={1} className="w-full bg-white border border-stone-250 rounded-lg px-3 py-2 text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none" />
-                        <textarea value={f.result.description} onChange={(e) => updateResult(f.id, { description: e.target.value })} rows={2} className="w-full bg-white border border-stone-250 rounded-lg px-3 py-2 text-xs text-stone-700 focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none" />
+                        <textarea value={f.result?.title || ''} onChange={(e) => updateResult(f.id, { title: e.target.value })} rows={1} className="w-full bg-white border border-stone-250 rounded-lg px-3 py-2 text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none" />
+                        <textarea value={f.result?.description || ''} onChange={(e) => updateResult(f.id, { description: e.target.value })} rows={2} className="w-full bg-white border border-stone-250 rounded-lg px-3 py-2 text-xs text-stone-700 focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none" />
                         <input
-                          value={f.result.keywords.join(', ')}
+                          value={f.result?.keywords?.join(', ') || ''}
                           onChange={(e) => updateResult(f.id, { keywords: e.target.value.split(',').map((k) => k.trim()).filter(Boolean) })}
                           className="w-full bg-white border border-stone-250 rounded-lg px-3 py-2 text-xs font-mono text-stone-700 focus:outline-none focus:ring-2 focus:ring-amber-500"
                         />
@@ -898,15 +966,15 @@ export default function MetadataStudio() {
                     ) : (
                       <div className="space-y-2">
                         <div className="flex items-start justify-between gap-3">
-                          <p className="text-sm font-semibold text-stone-900">{f.result.title}</p>
-                          <span className={`text-[11px] font-mono flex-shrink-0 ${charTone(f.result.title.length, titleLength)}`}>{f.result.title.length}/{titleLength}</span>
+                          <p className="text-sm font-semibold text-stone-900">{f.result?.title}</p>
+                          <span className={`text-[11px] font-mono flex-shrink-0 ${charTone(f.result?.title.length || 0, titleLength)}`}>{f.result?.title.length || 0}/{titleLength}</span>
                         </div>
                         <div className="flex items-start justify-between gap-3">
-                          <p className="text-xs text-stone-600">{f.result.description}</p>
-                          <span className={`text-[11px] font-mono flex-shrink-0 ${charTone(f.result.description.length, descLength)}`}>{f.result.description.length}/{descLength}</span>
+                          <p className="text-xs text-stone-600">{f.result?.description}</p>
+                          <span className={`text-[11px] font-mono flex-shrink-0 ${charTone(f.result?.description.length || 0, descLength)}`}>{f.result?.description.length || 0}/{descLength}</span>
                         </div>
                         <div className="flex flex-wrap gap-1.5 pt-1">
-                          {f.result.keywords.map((k) => (
+                          {f.result?.keywords?.map((k) => (
                             <span key={k} className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-stone-100 border border-stone-200 text-stone-500">{k}</span>
                           ))}
                         </div>
@@ -931,7 +999,7 @@ export default function MetadataStudio() {
               <X className="h-5 w-5" />
             </button>
             <div className="text-center">
-              <h3 className="text-lg font-extrabold text-stone-900">
+              <h3 className="text-lg font-extrabold text-stone-100">
                 {isSignUp ? 'Create an Account' : 'Welcome Back'}
               </h3>
               <p className="text-xs text-stone-500 mt-1">
@@ -1008,7 +1076,7 @@ export default function MetadataStudio() {
         </div>
       )}
 
-      {/* Toasts (Light-theme version) */}
+      {/* Toasts */}
       <div className="fixed bottom-4 right-4 z-50 space-y-2 w-72">
         {toasts.map((t) => (
           <div key={t.id} className={`flex items-center gap-2 px-3.5 py-2.5 rounded-lg border text-xs font-semibold shadow-lg ${
