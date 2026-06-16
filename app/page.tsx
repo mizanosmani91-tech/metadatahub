@@ -5,7 +5,7 @@ import {
   Aperture, Upload, SlidersHorizontal, KeyRound, Eye, EyeOff,
   Play, Download, History, Trash2, X, CheckCircle2, Loader2,
   AlertCircle, Search, Coins, ChevronDown, Pencil, RefreshCw, Copy,
-  FileImage, FileVideo, FileCode, FileText, HelpCircle, ListChecks, LogOut, LogIn, ExternalLink, Tags
+  FileImage, FileVideo, FileCode, FileText, HelpCircle, ListChecks, LogOut, LogIn, ExternalLink, Tags, Key
 } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 
@@ -104,7 +104,7 @@ const PLATFORM_ACCENTS: Record<string, string> = {
   teal: 'border-teal-500 text-teal-750 bg-teal-50',
 };
 
-// Expanded AI Models List (Free and Paid) with Grok & DeepSeek Added
+// Expanded AI Models List
 const AI_MODELS = [
   { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash (Free / Paid)', platform: 'google' },
   { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro (Precise / Paid)', platform: 'google' },
@@ -320,8 +320,25 @@ export default function MetadataStudio() {
   // Generation settings
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(['adobe', 'shutterstock']);
   const [aiProvider, setAiProvider] = useState<string>('gemini-1.5-flash');
-  const [apiKey, setApiKey] = useState<string>('');
-  const [showApiKey, setShowApiKey] = useState<boolean>(false);
+  
+  // Persistent API Keys for multiple engines (Saved separately in localStorage)
+  const [apiKeys, setApiKeys] = useState<Record<string, string>>({
+    google: '',
+    openai: '',
+    anthropic: '',
+    xai: '',
+    deepseek: '',
+  });
+  
+  const [showKeys, setShowKeys] = useState<Record<string, boolean>>({
+    google: false,
+    openai: false,
+    anthropic: false,
+    xai: false,
+    deepseek: false,
+  });
+
+  const [showApiKeyModal, setShowApiKeyModal] = useState<boolean>(false);
   const [titleLength, setTitleLength] = useState<number>(60);
   const [descLength, setDescLength] = useState<number>(150);
   const [keywordCount, setKeywordCount] = useState<number>(30);
@@ -383,15 +400,27 @@ export default function MetadataStudio() {
       }
     });
 
-    // Load local settings
-    const cachedApiKey = localStorage.getItem('apiKey') || '';
+    // Load local settings & unique persistent API keys for each provider
+    const googleKey = localStorage.getItem('api_key_google') || '';
+    const openaiKey = localStorage.getItem('api_key_openai') || '';
+    const anthropicKey = localStorage.getItem('api_key_anthropic') || '';
+    const xaiKey = localStorage.getItem('api_key_xai') || '';
+    const deepseekKey = localStorage.getItem('api_key_deepseek') || '';
+
+    setApiKeys({
+      google: googleKey,
+      openai: openaiKey,
+      anthropic: anthropicKey,
+      xai: xaiKey,
+      deepseek: deepseekKey,
+    });
+
     const cachedTitleLength = localStorage.getItem('titleLength');
     const cachedDescLength = localStorage.getItem('descLength');
     const cachedKeywordCount = localStorage.getItem('keywordCount');
     const cachedStaticKeywords = localStorage.getItem('staticKeywords') || '';
     const cachedPlatforms = localStorage.getItem('selectedPlatforms');
 
-    if (cachedApiKey) setApiKey(cachedApiKey);
     if (cachedTitleLength) setTitleLength(Number(cachedTitleLength));
     if (cachedDescLength) setDescLength(Number(cachedDescLength));
     if (cachedKeywordCount) setKeywordCount(Number(cachedKeywordCount));
@@ -408,13 +437,23 @@ export default function MetadataStudio() {
   }, []);
 
   const saveSettingsLocally = () => {
-    localStorage.setItem('apiKey', apiKey);
     localStorage.setItem('titleLength', String(titleLength));
     localStorage.setItem('descLength', String(descLength));
     localStorage.setItem('keywordCount', String(keywordCount));
     localStorage.setItem('staticKeywords', staticKeywords);
     localStorage.setItem('selectedPlatforms', JSON.stringify(selectedPlatforms));
     pushToast('Your settings have been saved locally!', 'success');
+  };
+
+  const handleSaveApiKeys = (e: React.FormEvent) => {
+    e.preventDefault();
+    localStorage.setItem('api_key_google', apiKeys.google);
+    localStorage.setItem('api_key_openai', apiKeys.openai);
+    localStorage.setItem('api_key_anthropic', apiKeys.anthropic);
+    localStorage.setItem('api_key_xai', apiKeys.xai);
+    localStorage.setItem('api_key_deepseek', apiKeys.deepseek);
+    pushToast('All API Keys successfully updated and saved!', 'success');
+    setShowApiKeyModal(false);
   };
 
   const fetchUserProfile = async (userId: string) => {
@@ -534,6 +573,12 @@ export default function MetadataStudio() {
 
   const platformNames = () => PLATFORMS.filter((p) => selectedPlatforms.includes(p.id)).map((p) => p.name);
 
+  // Dynamically find API Portal URL based on selected model's platform
+  const getSelectedModelPlatform = () => {
+    const selected = AI_MODELS.find(m => m.id === aiProvider);
+    return selected ? selected.platform : 'google';
+  };
+
   const generateOne = async (id: number) => {
     setFiles((prev) => prev.map((f) => (f.id === id ? { ...f, status: 'processing' } : f)));
     const target = files.find((f) => f.id === id);
@@ -550,8 +595,11 @@ export default function MetadataStudio() {
       const base64 = await compressAndGetBase64(target.file);
       const headers: Record<string, string> = { 'content-type': 'application/json' };
       
+      const currentPlatform = getSelectedModelPlatform();
+      const activeCustomKey = apiKeys[currentPlatform] || '';
+
       // Inject user bearer token securely if they don't use their own API key
-      if (!apiKey && session?.access_token) {
+      if (!activeCustomKey && session?.access_token) {
         headers['Authorization'] = `Bearer ${session.access_token}`;
       }
 
@@ -560,7 +608,7 @@ export default function MetadataStudio() {
         headers,
         body: JSON.stringify({
           provider: aiProvider,
-          apiKey,
+          apiKey: activeCustomKey, // Sends the specific persistent key saved for this platform
           imageBase64: base64,
           mediaType: target.file.type || 'image/jpeg',
           titleLength, descLength, keywordCount,
@@ -578,7 +626,7 @@ export default function MetadataStudio() {
       setFiles((prev) => prev.map((f) => (f.id === id ? { ...f, status: 'done', result: data } : f)));
       
       // Refresh user credits if system key was used
-      if (user && !apiKey) fetchUserProfile(user.id);
+      if (user && !activeCustomKey) fetchUserProfile(user.id);
 
     } catch (err: any) {
       setFiles((prev) => prev.map((f) => (f.id === id ? { ...f, status: 'error' } : f)));
@@ -597,14 +645,17 @@ export default function MetadataStudio() {
       return;
     }
 
+    const currentPlatform = getSelectedModelPlatform();
+    const activeCustomKey = apiKeys[currentPlatform] || '';
+
     // Require Login if using system key
-    if (!apiKey && !user) {
+    if (!activeCustomKey && !user) {
       pushToast('Please log in or enter your own API key to generate metadata.', 'error');
       setShowAuthModal(true);
       return;
     }
 
-    if (!apiKey && credits <= 0) {
+    if (!activeCustomKey && credits <= 0) {
       pushToast('No credits left, add your own API key to keep generating.', 'error');
       return;
     }
@@ -612,8 +663,8 @@ export default function MetadataStudio() {
     let creditsLeft = credits;
     queued.forEach((f, idx) => {
       setTimeout(() => {
-        if (apiKey || creditsLeft > 0) {
-          if (!apiKey) creditsLeft -= 1;
+        if (activeCustomKey || creditsLeft > 0) {
+          if (!activeCustomKey) creditsLeft -= 1;
           generateOne(f.id);
         } else {
           setFiles((prev) => prev.map((x) => (x.id === f.id ? { ...x, status: 'error' } : x)));
@@ -624,7 +675,9 @@ export default function MetadataStudio() {
   };
 
   const regenerateOne = (id: number) => {
-    if (!apiKey && credits <= 0) {
+    const currentPlatform = getSelectedModelPlatform();
+    const activeCustomKey = apiKeys[currentPlatform] || '';
+    if (!activeCustomKey && credits <= 0) {
       pushToast('No credits left', 'error');
       return;
     }
@@ -729,10 +782,10 @@ export default function MetadataStudio() {
   const togglePlatform = (id: string) =>
     setSelectedPlatforms((prev) => (prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]));
 
-  // Dynamically find API Portal URL based on selected model's platform
-  const getSelectedModelPlatform = () => {
-    const selected = AI_MODELS.find(m => m.id === aiProvider);
-    return selected ? selected.platform : 'google';
+  // Active Key Check for UI badge
+  const isActiveKeyConfigured = () => {
+    const platform = getSelectedModelPlatform();
+    return !!apiKeys[platform];
   };
 
   return (
@@ -877,24 +930,29 @@ export default function MetadataStudio() {
                   ))}
                 </select>
               </div>
-              
-              <div>
-                <label className="text-xs font-bold text-stone-500 tracking-wide block mb-1.5">API key</label>
-                <div className="relative">
-                  <KeyRound className="h-4 w-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type={showApiKey ? 'text' : 'password'}
-                    value={apiKey}
-                    onChange={(e) => setApiKey(e.target.value)}
-                    placeholder="Paste your key"
-                    className="w-full bg-stone-50 border border-stone-200 rounded-lg pl-9 pr-10 py-2.5 text-sm text-stone-850 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                  <button onClick={() => setShowApiKey(!showApiKey)} className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-655">
-                    {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-                <p className="text-[11px] text-stone-400 mt-1.5">Not stored on our servers. Leave blank to use your accounts balance.</p>
+
+              {/* Status Badge of Active Key Selection */}
+              <div className="flex justify-between items-center text-xs font-bold text-stone-500 px-1 py-0.5 bg-stone-100/50 rounded-lg border border-stone-200/40">
+                <span className="text-stone-400">API Key Status:</span>
+                {isActiveKeyConfigured() ? (
+                  <span className="text-emerald-600 flex items-center gap-1 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                    <CheckCircle2 className="h-3 w-3" /> Custom Key Active
+                  </span>
+                ) : (
+                  <span className="text-amber-600 flex items-center gap-1 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                    <Coins className="h-3 w-3" /> System Balance
+                  </span>
+                )}
               </div>
+
+              {/* Collapsed API Key Manager Trigger Button */}
+              <button
+                type="button"
+                onClick={() => setShowApiKeyModal(true)}
+                className="w-full flex items-center justify-center gap-2 bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold text-xs py-2.5 border border-stone-250 rounded-lg transition-all"
+              >
+                <Key className="h-3.5 w-3.5 text-emerald-600" /> Manage API Keys...
+              </button>
             </div>
 
             {/* Static Keywords / Tags Pool Manager */}
@@ -930,7 +988,7 @@ export default function MetadataStudio() {
                   <Slider label="Batch size (concurrent)" value={batchSize} unit="x" min={1} max={10} onChange={setBatchSize} />
                   <Slider label="Requests per minute" value={rpm} unit="/min" min={5} max={60} onChange={setRpm} />
                   <div>
-                    <label className="text-xs font-bold text-stone-500 tracking-wide block mb-1.5">Custom prompt (optional)</label>
+                    <label className="text-xs font-bold text-stone-400 tracking-wide block mb-1.5">Custom prompt (optional)</label>
                     <textarea
                       value={customPrompt}
                       onChange={(e) => setCustomPrompt(e.target.value)}
@@ -1017,6 +1075,7 @@ export default function MetadataStudio() {
               </div>
 
               <div className="flex flex-wrap gap-2.5 pt-1">
+                {/* Fixed color compilation shade */}
                 <button onClick={handleGenerate} className="flex-1 flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-650 text-white px-5 py-2.5 rounded-lg font-extrabold text-sm transition-colors shadow">
                   <Play className="h-4 w-4 fill-white" /> Generate metadata
                 </button>
@@ -1116,6 +1175,151 @@ export default function MetadataStudio() {
         </section>
       </main>
 
+      {/* Persistent & Hidden API Keys Manager Modal */}
+      {showApiKeyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-sm animate-fade-in">
+          <div className="relative w-full max-w-lg bg-white border border-stone-200 rounded-3xl p-6 shadow-2xl space-y-5">
+            <button
+              onClick={() => setShowApiKeyModal(false)}
+              className="absolute right-5 top-5 text-stone-400 hover:text-stone-600 transition-colors"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <div className="text-center">
+              <div className="mx-auto w-12 h-12 bg-emerald-50 border border-emerald-100 rounded-xl flex items-center justify-center mb-3">
+                <Key className="h-6 w-6 text-emerald-600" />
+              </div>
+              <h3 className="text-lg font-extrabold text-stone-900">
+                🔑 API Keys Manager
+              </h3>
+              <p className="text-xs text-stone-500 mt-1">
+                Configure your persistent API keys. Once saved, keys are stored safely on your browser and called dynamically based on your active AI Engine.
+              </p>
+            </div>
+            
+            <form onSubmit={handleSaveApiKeys} className="space-y-4 max-h-[350px] overflow-y-auto qscroll pr-1">
+              
+              {/* Google Gemini */}
+              <div>
+                <div className="flex justify-between items-center mb-1.5">
+                  <label className="text-xs font-bold text-stone-600">Google Gemini API Key</label>
+                  <a href={API_KEY_URLS.google} target="_blank" rel="noreferrer" className="text-[10px] font-bold text-emerald-600 flex items-center gap-1 hover:underline">Get Key <ExternalLink className="h-2.5 w-2.5" /></a>
+                </div>
+                <div className="relative">
+                  <input
+                    type={showKeys.google ? 'text' : 'password'}
+                    value={apiKeys.google}
+                    onChange={(e) => setApiKeys({ ...apiKeys, google: e.target.value })}
+                    placeholder="AIzaSy..."
+                    className="w-full bg-stone-50 border border-stone-200 rounded-xl pl-4 pr-10 py-2.5 text-xs text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                  <button type="button" onClick={() => setShowKeys({ ...showKeys, google: !showKeys.google })} className="absolute right-3 top-3 text-stone-400 hover:text-stone-655">
+                    {showKeys.google ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* OpenAI GPT */}
+              <div>
+                <div className="flex justify-between items-center mb-1.5">
+                  <label className="text-xs font-bold text-stone-600">OpenAI GPT API Key</label>
+                  <a href={API_KEY_URLS.openai} target="_blank" rel="noreferrer" className="text-[10px] font-bold text-emerald-600 flex items-center gap-1 hover:underline">Get Key <ExternalLink className="h-2.5 w-2.5" /></a>
+                </div>
+                <div className="relative">
+                  <input
+                    type={showKeys.openai ? 'text' : 'password'}
+                    value={apiKeys.openai}
+                    onChange={(e) => setApiKeys({ ...apiKeys, openai: e.target.value })}
+                    placeholder="sk-proj-..."
+                    className="w-full bg-stone-50 border border-stone-200 rounded-xl pl-4 pr-10 py-2.5 text-xs text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                  <button type="button" onClick={() => setShowKeys({ ...showKeys, openai: !showKeys.openai })} className="absolute right-3 top-3 text-stone-400 hover:text-stone-655">
+                    {showKeys.openai ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Anthropic Claude */}
+              <div>
+                <div className="flex justify-between items-center mb-1.5">
+                  <label className="text-xs font-bold text-stone-600">Anthropic Claude API Key</label>
+                  <a href={API_KEY_URLS.anthropic} target="_blank" rel="noreferrer" className="text-[10px] font-bold text-emerald-600 flex items-center gap-1 hover:underline">Get Key <ExternalLink className="h-2.5 w-2.5" /></a>
+                </div>
+                <div className="relative">
+                  <input
+                    type={showKeys.anthropic ? 'text' : 'password'}
+                    value={apiKeys.anthropic}
+                    onChange={(e) => setApiKeys({ ...apiKeys, anthropic: e.target.value })}
+                    placeholder="sk-ant-..."
+                    className="w-full bg-stone-50 border border-stone-200 rounded-xl pl-4 pr-10 py-2.5 text-xs text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                  <button type="button" onClick={() => setShowKeys({ ...showKeys, anthropic: !showKeys.anthropic })} className="absolute right-3 top-3 text-stone-400 hover:text-stone-655">
+                    {showKeys.anthropic ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* xAI Grok */}
+              <div>
+                <div className="flex justify-between items-center mb-1.5">
+                  <label className="text-xs font-bold text-stone-600">xAI Grok API Key</label>
+                  <a href={API_KEY_URLS.xai} target="_blank" rel="noreferrer" className="text-[10px] font-bold text-emerald-600 flex items-center gap-1 hover:underline">Get Key <ExternalLink className="h-2.5 w-2.5" /></a>
+                </div>
+                <div className="relative">
+                  <input
+                    type={showKeys.xai ? 'text' : 'password'}
+                    value={apiKeys.xai}
+                    onChange={(e) => setApiKeys({ ...apiKeys, xai: e.target.value })}
+                    placeholder="xai-..."
+                    className="w-full bg-stone-50 border border-stone-200 rounded-xl pl-4 pr-10 py-2.5 text-xs text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                  <button type="button" onClick={() => setShowKeys({ ...showKeys, xai: !showKeys.xai })} className="absolute right-3 top-3 text-stone-400 hover:text-stone-655">
+                    {showKeys.xai ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* DeepSeek */}
+              <div>
+                <div className="flex justify-between items-center mb-1.5">
+                  <label className="text-xs font-bold text-stone-600">DeepSeek API Key</label>
+                  <a href={API_KEY_URLS.deepseek} target="_blank" rel="noreferrer" className="text-[10px] font-bold text-emerald-600 flex items-center gap-1 hover:underline">Get Key <ExternalLink className="h-2.5 w-2.5" /></a>
+                </div>
+                <div className="relative">
+                  <input
+                    type={showKeys.deepseek ? 'text' : 'password'}
+                    value={apiKeys.deepseek}
+                    onChange={(e) => setApiKeys({ ...apiKeys, deepseek: e.target.value })}
+                    placeholder="sk-..."
+                    className="w-full bg-stone-50 border border-stone-200 rounded-xl pl-4 pr-10 py-2.5 text-xs text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                  <button type="button" onClick={() => setShowKeys({ ...showKeys, deepseek: !showKeys.deepseek })} className="absolute right-3 top-3 text-stone-400 hover:text-stone-655">
+                    {showKeys.deepseek ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="submit"
+                  className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2.5 rounded-xl text-xs transition-colors shadow"
+                >
+                  Save API Keys
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowApiKeyModal(false)}
+                  className="flex-1 bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold py-2.5 rounded-xl text-xs transition-colors border border-stone-250"
+                >
+                  Cancel
+                </button>
+              </div>
+
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Auth Modal */}
       {showAuthModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-sm">
@@ -1169,7 +1373,7 @@ export default function MetadataStudio() {
             <div className="text-center pt-2 border-t border-stone-200">
               <button
                 onClick={() => setIsSignUp(!isSignUp)}
-                className="text-xs text-emerald-600 hover:text-emerald-755 font-bold underline underline-offset-2"
+                className="text-xs text-emerald-600 hover:text-emerald-750 font-bold underline underline-offset-2"
               >
                 {isSignUp ? 'Already have an account? Sign In' : 'New here? Create an Account'}
               </button>
@@ -1185,7 +1389,7 @@ export default function MetadataStudio() {
           <div className="relative w-80 bg-white border-l border-stone-200 h-full p-5 overflow-y-auto qscroll shadow-xl">
             <div className="flex items-center justify-between border-b border-stone-200 pb-3 mb-4">
               <h3 className="text-sm font-bold text-stone-855 uppercase tracking-wide">Export history</h3>
-              <button onClick={() => setHistoryOpen(false)} className="text-stone-400 hover:text-stone-600"><X className="h-4 w-4" /></button>
+              <button onClick={() => setHistoryOpen(false)} className="text-stone-400 hover:text-stone-655"><X className="h-4 w-4" /></button>
             </div>
             {history.length === 0 ? (
               <p className="text-xs text-stone-400">Exports you make this session will show up here.</p>
