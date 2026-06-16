@@ -136,8 +136,9 @@ export async function POST(req: NextRequest) {
       if (provider === 'gemini-1.5-pro') selectedModel = 'gemini-1.5-pro';
       else if (provider === 'gemini-1.0-pro') selectedModel = 'gemini-1.0-pro';
 
+      // Using highly stable v1beta endpoint with removed redundant configuration to prevent payload issues
       const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1/models/${selectedModel}:generateContent?key=${finalApiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${finalApiKey}`,
         {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
@@ -150,7 +151,6 @@ export async function POST(req: NextRequest) {
                 ],
               },
             ],
-            generationConfig: { responseMimeType: 'application/json' },
           }),
         }
       );
