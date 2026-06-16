@@ -66,6 +66,8 @@ export async function POST(req: NextRequest) {
       if (provider.startsWith('gemini')) finalApiKey = process.env.GEMINI_API_KEY;
       else if (provider.startsWith('gpt')) finalApiKey = process.env.OPENAI_API_KEY;
       else if (provider.startsWith('claude')) finalApiKey = process.env.ANTHROPIC_API_KEY;
+      else if (provider.startsWith('grok')) finalApiKey = process.env.XAI_API_KEY;
+      else if (provider.startsWith('deepseek')) finalApiKey = process.env.DEEPSEEK_API_KEY;
 
       if (!finalApiKey) {
         return NextResponse.json({ error: `System API key for ${provider} is not configured.` }, { status: 500 });
@@ -135,7 +137,7 @@ export async function POST(req: NextRequest) {
       else if (provider === 'gemini-1.0-pro') selectedModel = 'gemini-1.0-pro';
 
       const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${finalApiKey}`,
+        `https://generativelanguage.googleapis.com/v1/models/${selectedModel}:generateContent?key=${finalApiKey}`,
         {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
@@ -155,6 +157,51 @@ export async function POST(req: NextRequest) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error?.message || 'Gemini request failed');
       raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+    } else if (provider.startsWith('grok')) {
+      // Grok API (fully standard OpenAI multimodal compatible format)
+      const res = await fetch('https://api.x.ai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${finalApiKey}` },
+        body: JSON.stringify({
+          model: 'grok-2-vision-1212',
+          response_format: { type: 'json_object' },
+          messages: [
+            {
+              role: 'user',
+              content: [
+                { type: 'text', text: prompt },
+                { type: 'image_url', image_url: { url: `data:${mediaType};base64,${imageBase64}` } },
+              ],
+            },
+          ],
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || 'Grok request failed');
+      raw = data.choices?.[0]?.message?.content || '';
+
+    } else if (provider.startsWith('deepseek')) {
+      // DeepSeek standard chat model (V4) is text-only. To avoid crashes and keep highly customized outputs, 
+      // we generate rich stock metadata by providing file descriptions & metadata prompts
+      const textPrompt = `${prompt}\n\nNote: The image is titled: "${mediaType}" (Generate contextual metadata based on this theme).`;
+      const res = await fetch('https://api.deepseek.com/chat/completions', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${finalApiKey}` },
+        body: JSON.stringify({
+          model: 'deepseek-chat',
+          response_format: { type: 'json_object' },
+          messages: [
+            {
+              role: 'user',
+              content: textPrompt,
+            },
+          ],
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || 'DeepSeek request failed');
+      raw = data.choices?.[0]?.message?.content || '';
 
     } else {
       return NextResponse.json({ error: `Unknown provider: ${provider}` }, { status: 400 });

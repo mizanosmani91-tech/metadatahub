@@ -306,7 +306,7 @@ function Slider({ label, value, unit, min, max, onChange }: SliderProps) {
       <input
         type="range" min={min} max={max} value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="w-full h-1.5 rounded-full appearance-none bg-stone-200 accent-emerald-500 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
+        className="w-full h-1.5 rounded-full appearance-none bg-stone-200 accent-emerald-555 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
       />
     </div>
   );
@@ -1017,7 +1017,6 @@ export default function MetadataStudio() {
               </div>
 
               <div className="flex flex-wrap gap-2.5 pt-1">
-                {/* Fixed color compilation shade */}
                 <button onClick={handleGenerate} className="flex-1 flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-650 text-white px-5 py-2.5 rounded-lg font-extrabold text-sm transition-colors shadow">
                   <Play className="h-4 w-4 fill-white" /> Generate metadata
                 </button>
