@@ -92,16 +92,16 @@ const PLATFORMS: Platform[] = [
 const PLATFORM_ACCENTS: Record<string, string> = {
   stone: 'border-stone-400 text-stone-850 bg-stone-100',
   orange: 'border-orange-400 text-orange-700 bg-orange-50',
-  red: 'border-red-400 text-red-700 bg-red-50',
+  red: 'border-red-400 text-red-750 bg-red-50',
   amber: 'border-amber-400 text-amber-700 bg-amber-50',
-  sky: 'border-sky-400 text-sky-700 bg-sky-50',
-  lime: 'border-lime-500 text-lime-700 bg-lime-50',
-  fuchsia: 'border-fuchsia-400 text-fuchsia-700 bg-fuchsia-50',
-  cyan: 'border-cyan-500 text-cyan-700 bg-cyan-50',
-  emerald: 'border-emerald-500 text-emerald-700 bg-emerald-50',
-  rose: 'border-rose-400 text-rose-700 bg-rose-50',
-  blue: 'border-blue-400 text-blue-700 bg-blue-50',
-  teal: 'border-teal-500 text-teal-700 bg-teal-50',
+  sky: 'border-sky-400 text-sky-750 bg-sky-50',
+  lime: 'border-lime-500 text-lime-750 bg-lime-50',
+  fuchsia: 'border-fuchsia-400 text-fuchsia-750 bg-fuchsia-50',
+  cyan: 'border-cyan-500 text-cyan-750 bg-cyan-50',
+  emerald: 'border-emerald-500 text-emerald-750 bg-emerald-50',
+  rose: 'border-rose-400 text-rose-750 bg-rose-50',
+  blue: 'border-blue-400 text-blue-750 bg-blue-50',
+  teal: 'border-teal-500 text-teal-750 bg-teal-50',
 };
 
 // Expanded AI Models List (Free and Paid)
@@ -267,7 +267,7 @@ function Slider({ label, value, unit, min, max, onChange }: SliderProps) {
       <input
         type="range" min={min} max={max} value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="w-full h-1.5 rounded-full appearance-none bg-stone-200 accent-emerald-550 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
+        className="w-full h-1.5 rounded-full appearance-none bg-stone-200 accent-emerald-500 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
       />
     </div>
   );
@@ -708,14 +708,14 @@ export default function MetadataStudio() {
         .qscroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
       `}</style>
 
-      {/* Header */}
+      {/* Header with platform name brand updated to MetaDataTECH */}
       <header className="border-b border-stone-200 bg-white/95 backdrop-blur px-6 py-3.5 flex items-center justify-between sticky top-0 z-30 shadow-sm">
         <div className="flex items-center gap-3">
           <div className="bg-emerald-500 p-2 rounded-lg shadow-sm">
             <Aperture className="h-5 w-5 text-white" />
           </div>
           <div>
-            <span className="text-xl font-extrabold text-stone-900 tracking-tight">NovaMeta</span>
+            <span className="text-xl font-extrabold text-stone-900 tracking-tight">MetaDataTECH</span>
             <span className="text-[11px] block text-stone-400 font-semibold tracking-wide uppercase">Batch metadata for stock contributors</span>
           </div>
         </div>
@@ -744,7 +744,7 @@ export default function MetadataStudio() {
           )}
           <button
             onClick={() => setHistoryOpen(true)}
-            className="flex items-center gap-2 text-xs font-bold text-stone-650 hover:text-stone-900 bg-stone-100 hover:bg-stone-200 px-3.5 py-2 rounded-lg border border-stone-200 transition-colors"
+            className="flex items-center gap-2 text-xs font-bold text-stone-655 hover:text-stone-900 bg-stone-100 hover:bg-stone-200 px-3.5 py-2 rounded-lg border border-stone-200 transition-colors"
           >
             <History className="h-4 w-4" /> History
           </button>
@@ -977,7 +977,7 @@ export default function MetadataStudio() {
               </div>
 
               <div className="flex flex-wrap gap-2.5 pt-1">
-                {/* Fixed invalid color 'bg-emerald-550' with compiled standard 'bg-emerald-500' */}
+                {/* Fixed color compilation shade */}
                 <button onClick={handleGenerate} className="flex-1 flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-650 text-white px-5 py-2.5 rounded-lg font-extrabold text-sm transition-colors shadow">
                   <Play className="h-4 w-4 fill-white" /> Generate metadata
                 </button>
@@ -1130,7 +1130,7 @@ export default function MetadataStudio() {
             <div className="text-center pt-2 border-t border-stone-200">
               <button
                 onClick={() => setIsSignUp(!isSignUp)}
-                className="text-xs text-emerald-600 hover:text-emerald-750 font-bold underline underline-offset-2"
+                className="text-xs text-emerald-600 hover:text-emerald-755 font-bold underline underline-offset-2"
               >
                 {isSignUp ? 'Already have an account? Sign In' : 'New here? Create an Account'}
               </button>

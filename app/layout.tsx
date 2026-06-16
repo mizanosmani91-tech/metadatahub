@@ -1,8 +1,8 @@
 import "./globals.css";
 
 export const metadata = {
-  title: "NovaMeta AI",
-  description: "Next-Gen Microstock Companion",
+  title: "MetaDataTECH AI",
+  description: "Next-Gen Batch Metadata Generator for Stock Contributors",
 };
 
 export default function RootLayout({
